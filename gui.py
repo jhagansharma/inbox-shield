@@ -263,7 +263,7 @@ class EmailAnalysisGUI(QMainWindow):
         tabs.addTab(file_scan_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon), "File Scan")
         tabs.addTab(self.create_gmail_tab(), self.style().standardIcon(QStyle.StandardPixmap.SP_DriveNetIcon), "Gmail Monitor")
         tabs.addTab(self.create_reports_tab(), self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView), "Reports")
-        tabs.addTab(QWidget(), self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogInfoView), "Settings")
+        tabs.addTab(self.create_settings_tab(), self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogInfoView), "Settings")
         
         # Set status bar
         self.statusBar().setStyleSheet("""
@@ -438,6 +438,7 @@ class EmailAnalysisGUI(QMainWindow):
             QComboBox {
                 border: 1px solid #E0E0E0;
                 border-radius: 5px;
+                color: #424242;
                 padding: 8px;
                 min-width: 150px;
                 background-color: white;
@@ -521,6 +522,151 @@ class EmailAnalysisGUI(QMainWindow):
 
 
         return tab
+    
+    def create_settings_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
+
+        # API Settings group
+        api_group = ModernGroupBox("API Settings")
+        api_layout = QVBoxLayout()
+        api_layout.setSpacing(20)
+
+         # VirusTotal API
+        vt_layout = QVBoxLayout()
+        vt_label = QLabel("VirusTotal API Key")
+        vt_label.setStyleSheet("""
+            QLabel {
+                color: #424242;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+        """)
+
+        self.vt_api_key = QLineEdit()
+        self.vt_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.vt_api_key.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 5px;
+                padding: 10px;
+                color: #424242;
+                background-color: white;
+                font-family: 'Consolas', 'Courier New', monospace;
+            }
+            QLineEdit:focus {
+                border: 2px solid #2196F3;
+            }
+        """)
+        vt_layout.addWidget(vt_label)
+        vt_layout.addWidget(self.vt_api_key)
+        api_layout.addLayout(vt_layout)
+
+        # Google API
+        google_layout = QVBoxLayout()
+        google_label = QLabel("Google API Key")
+        google_label.setStyleSheet("""
+            QLabel {
+                color: #424242;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+        """)
+        self.google_api_key = QLineEdit()
+        self.google_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.google_api_key.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 5px;
+                padding: 10px;
+                color:black;
+                background-color: white;
+                font-family: 'Consolas', 'Courier New', monospace;
+            }
+            QLineEdit:focus {
+                border: 2px solid #2196F3;
+            }
+        """)
+
+        google_layout.addWidget(google_label)
+        google_layout.addWidget(self.google_api_key)
+        api_layout.addLayout(google_layout)
+        
+        
+
+        # API MARKET
+        mark_layout = QVBoxLayout()
+        mark_label = QLabel("Disposable and DNS API Key")
+        mark_label.setStyleSheet("""
+            QLabel {
+                color: #424242;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+        """)
+
+        self.mark_api_key = QLineEdit()
+        self.mark_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.mark_api_key.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 5px;
+                color: #424242;
+                padding: 10px;
+                background-color: white;
+                font-family: 'Consolas', 'Courier New', monospace;
+            }
+            QLineEdit:focus {
+                border: 2px solid #2196F3;
+            }
+        """)
+        mark_layout.addWidget(mark_label)
+        mark_layout.addWidget(self.mark_api_key)
+        api_layout.addLayout(mark_layout)
+
+        # API MARKET
+        whois_layout = QVBoxLayout()
+        whois_label = QLabel("Whois API Key")
+        whois_label.setStyleSheet("""
+            QLabel {
+                color: #424242;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+        """)
+
+        self.whois_api_key = QLineEdit()
+        self.whois_api_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.whois_api_key.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 5px;
+                color: #424242;
+                padding: 10px;
+                background-color: white;
+                font-family: 'Consolas', 'Courier New', monospace;
+            }
+            QLineEdit:focus {
+                border: 2px solid #2196F3;
+            }
+        """)
+        whois_layout.addWidget(whois_label)
+        whois_layout.addWidget(self.whois_api_key)
+        api_layout.addLayout(whois_layout)
+
+        save_button = ModernButton("Save Settings", primary=True)
+        #save_button.clicked.connect(self.save_settings)
+        api_layout.addWidget(save_button)
+        
+        api_group.setLayout(api_layout)
+        layout.addWidget(api_group)
+
+        
+        return tab
+    
+
 
 
 if __name__ == "__main__":
