@@ -15,6 +15,6 @@ To get started, clone the repository and follow the setup instructions provided 
 We welcome contributions from the community! Feel free to submit issues, feature requests, or pull requests to help improve the system.
 
 ## Instructions on How To Use Our Tool .
- ![image alt](https://github.com/jhagansharma/inbox-shield/blob/d78e68e89b985b8bbc73dc7b2c192303b2a8e81a/editedbase.jpg)
+ ![image alt](https://github.com/jhagansharma/inbox-shield/blob/536b03aff00c921b2803a4272866db5215401436/images/editedbase.jpg)
 
 The main page Email Security Analyzer page offers several options for users. Under "Email File Selection," users can choose an email for scanning using the "Select Email File" button. The "Analysis" section provides an "Analyze Email" button to initiate the security check. Finally, the "Analysis Results" area displays a "Summary" and "Detailed Analysis" after the scan is complete.
