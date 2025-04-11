@@ -14,5 +14,5 @@ To get started, clone the repository and follow the setup instructions provided 
 ## Contributing
 We welcome contributions from the community! Feel free to submit issues, feature requests, or pull requests to help improve the system.
 
-## License
-This project is licensed under the [MIT License](LICENSE).
+## INSTRUCTIONS ON HOW TO USE OUR TOOL .
+ ![image alt](https://github.com/jhagansharma/inbox-shield/blob/fe1fce706f7ee597e5daa61cbc237f1eda2e65e1/base.jpg)
