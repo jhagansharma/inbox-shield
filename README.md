@@ -14,5 +14,7 @@ To get started, clone the repository and follow the setup instructions provided 
 ## Contributing
 We welcome contributions from the community! Feel free to submit issues, feature requests, or pull requests to help improve the system.
 
-## INSTRUCTIONS ON HOW TO USE OUR TOOL .
+## Instructions on How To Use Our Tool .
  ![image alt](https://github.com/jhagansharma/inbox-shield/blob/fe1fce706f7ee597e5daa61cbc237f1eda2e65e1/base.jpg)
+
+ 
