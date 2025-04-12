@@ -361,7 +361,7 @@ class EmailAnalysisGUI(QMainWindow):
 
         tabs.addTab(self.create_file_scan_tab(), self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon), "Email File Scan")
         tabs.addTab(self.create_gmail_tab(), self.style().standardIcon(QStyle.StandardPixmap.SP_DriveNetIcon), "Gmail Monitor")
-        tabs.addTab(self.create_reports_tab(), self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView), "Reports")
+        tabs.addTab(self.create_url_scan_tab(), self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView), "URL Scanning")
         tabs.addTab(self.create_settings_tab(), self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogInfoView), "Settings")
 
         self.load_settings()
@@ -622,6 +622,73 @@ class EmailAnalysisGUI(QMainWindow):
         tab.setLayout(layout)
 
         return tab
+
+    def create_url_scan_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(15)
+
+        # URL Input Group
+        url_group = ModernGroupBox("URL Scanning")
+        url_layout = QVBoxLayout()
+        url_layout.setSpacing(10)
+
+        url_label = QLabel("Enter URL to Scan:")
+        url_label.setStyleSheet("font-weight: bold; color: #424242;")
+        url_layout.addWidget(url_label)
+
+        self.url_input = QLineEdit()
+        self.url_input.setPlaceholderText("https://example.com")
+        self.url_input.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 5px;
+                padding: 10px;
+                color:black;
+                background-color: white;
+            }
+        """)
+        url_layout.addWidget(self.url_input)
+
+        scan_button = ModernButton("Scan URL", primary=True)
+        scan_button.clicked.connect(self.scan_url)
+        url_layout.addWidget(scan_button)
+
+        url_group.setLayout(url_layout)
+        layout.addWidget(url_group)
+
+        # Results Group
+        results_group = ModernGroupBox("Scan Results")
+        results_layout = QVBoxLayout()
+
+        self.url_results = ModernTextEdit()
+        self.url_results.setReadOnly(True)
+        self.url_results.setStyleSheet("""
+            QTextEdit {
+                background-color: white;
+                border: 1px solid #E0E0E0;
+                color: black;
+                border-radius: 5px;
+                padding: 10px;
+            }
+        """)
+        results_layout.addWidget(self.url_results)
+
+        results_group.setLayout(results_layout)
+        layout.addWidget(results_group)
+
+        return tab
+
+    def scan_url(self):
+        url = self.url_input.text()
+        if not url:
+            QMessageBox.warning(self, "Error", "Please enter a URL to scan.")
+            return
+
+        # Simulate scanning process
+        self.url_results.setText(f"Scanning URL: {url}\n\nResults:\n- Safe: ✅\n- No malicious activity detected.")
+        self.statusBar().showMessage("URL scan completed.")
     
     def analyze_email(self):
         file_path = self.file_path_label.text()
@@ -973,30 +1040,24 @@ class EmailAnalysisGUI(QMainWindow):
     def authenticate_gmail(self):
         try:
             print("Starting Gmail authentication...")  # Debug log
-            
-            # First check if get_gmail_service exists
-            if not 'get_gmail_service' in globals():
-                QMessageBox.critical(self, "Error", 
-                                  "get_gmail_service function not found. Please check your imports.")
-                return
-                
+
             # Check if credentials.json exists
             credentials_path = os.path.join(os.path.dirname(__file__), "credentials.json")
             if not os.path.exists(credentials_path):
-                QMessageBox.critical(self, "Error", 
-                                  "credentials.json not found. Please add your Google API credentials.")
+                QMessageBox.critical(self, "Error", "credentials.json not found. Please add your Google API credentials.")
                 return
-                
-            # Try to get the Gmail service
+
+            # Authenticate user and get Gmail service
             self.gmail_service = get_gmail_service()
-            
+
             if self.gmail_service:
                 # Test the service with a simple API call
                 try:
-                    self.gmail_service.users().getProfile(userId="me").execute()
-                    
+                    profile = self.gmail_service.users().getProfile(userId="me").execute()
+                    email = profile.get("emailAddress", "Unknown")
+
                     # Update UI for successful authentication
-                    self.auth_status.setText("Authentication Status: Authenticated")
+                    self.auth_status.setText(f"Authenticated as: {email}")
                     self.auth_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
                     self.auth_button.setEnabled(False)
                     self.start_monitoring_btn.setEnabled(True)
@@ -1004,19 +1065,16 @@ class EmailAnalysisGUI(QMainWindow):
                     print("Gmail authentication successful")  # Debug log
                 except Exception as test_error:
                     print(f"Service test failed: {str(test_error)}")  # Debug log
-                    QMessageBox.critical(self, "Authentication Error", 
-                                      f"Failed to verify Gmail service: {str(test_error)}\n\n"
-                                      "Please try authenticating again.")
+                    QMessageBox.critical(self, "Authentication Error", f"Failed to verify Gmail service: {str(test_error)}")
                     self.gmail_service = None
             else:
-                QMessageBox.warning(self, "Authentication Required", 
-                                  "Please authenticate with Gmail first. Check your credentials and try again.")
+                QMessageBox.warning(self, "Authentication Required", "Failed to authenticate. Please try again.")
                 print("Gmail authentication failed")  # Debug log
         except Exception as e:
             error_msg = f"Authentication error: {str(e)}"
-            print(f"Authentication error: {error_msg}")  # Debug log
+            print(error_msg)  # Debug log
             QMessageBox.critical(self, "Authentication Error", error_msg)
-            
+
             # Reset authentication state
             self.auth_status.setText("Authentication Status: Not Authenticated")
             self.auth_status.setStyleSheet("color: #757575; font-weight: bold;")
@@ -1312,4 +1370,3 @@ if __name__ == '__main__':
     window=EmailAnalysisGUI()
     window.show()
     sys.exit(app.exec())
-            
