@@ -10,6 +10,7 @@ from PyQt6.QtCore import Qt, QThread,pyqtSignal, QSize,QTimer
 from PyQt6.QtGui import QIcon, QFont, QPalette, QColor,QPixmap,QTextCursor
 import json
 
+from url_checker import scan_url_virustotal
 from googleapiclient.discovery import build
 from google_auth import authenticate_user
 from googleapiclient.errors import HttpError
@@ -21,14 +22,13 @@ from get_gmail_service import get_gmail_service
 from legitimacy_checker import calculate_legitimacy_score
 
 class GmailMonitorThread(QThread):
-    update_signal = pyqtSignal(str)  # replaces .verdict
+    update_signal = pyqtSignal(dict)  # Emits a dictionary with detailed email info
     error_signal = pyqtSignal(str)
 
     def __init__(self, service, parent=None):
         super().__init__(parent)
         self.service = service
         self.running = True
-        # Add counters
         self.processed_count = 0
         self.suspicious_count = 0
         self.malicious_count = 0
@@ -47,11 +47,9 @@ class GmailMonitorThread(QThread):
                 for message in messages:
                     msg_id = message['id']
                     if msg_id == last_checked_id:
-                        print(f"Skipping already processed message: {msg_id}")  # Debug log
                         continue
 
                     print(f"Processing new message: {msg_id}")  # Debug log
-
                     msg = self.service.users().messages().get(userId='me', id=msg_id, format='raw').execute()
                     raw_data = base64.urlsafe_b64decode(msg['raw'].encode('ASCII'))
                     email_path = os.path.join(tempfile.gettempdir(), f"{msg_id}.eml")
@@ -74,23 +72,18 @@ class GmailMonitorThread(QThread):
                     elif verdict.lower() == "malicious":
                         self.malicious_count += 1
 
-                    html_result = f"""
-                    <div style='margin-bottom: 5px;'>
-                        <span style='color: #1976D2; font-weight: bold;'>Email {self.processed_count}</span>
-                        <br>
-                        <span style='color: #616161;'>From: {email_data.get('sender', 'Unknown')}</span>
-                        <br>
-                        <span style='color: #616161;'>Subject: {email_data.get('subject', 'No subject')}</span>
-                        <br>
-                        Verdict: <b style='color: {
-                            "malicious" in verdict.lower() and "#F44336" or 
-                            "suspicious" in verdict.lower() and "#FF9800" or 
-                            "#4CAF50"
-                        };'>{verdict}</b> (Score: {score})
-                    </div>
-                    <hr style='border: 0; border-top: 1px solid #E0E0E0;'>
-                    """
-                    self.update_signal.emit(html_result)
+                    # Emit detailed results
+                    self.update_signal.emit({
+                        "sender": email_data.get("sender", "Unknown"),
+                        "subject": email_data.get("subject", "No subject"),
+                        "date": email_data.get("date", "Unknown"),
+                        "verdict": verdict,
+                        "score": score,
+                        "attachments": len(attachments),
+                        "urls": len(email_data.get("urls", [])),
+                        "security_checks": security,
+                        "attachment_results": attachment_results
+                    })
 
                     last_checked_id = msg_id
                 time.sleep(30)
@@ -686,10 +679,39 @@ class EmailAnalysisGUI(QMainWindow):
             QMessageBox.warning(self, "Error", "Please enter a URL to scan.")
             return
 
-        # Simulate scanning process
-        self.url_results.setText(f"Scanning URL: {url}\n\nResults:\n- Safe: ✅\n- No malicious activity detected.")
+        self.statusBar().showMessage("Scanning URL via VirusTotal...")
+
+        # Load API key from config
+        try:
+            with open("config.json", "r") as f:
+                config = json.load(f)
+            vt_api_key = config.get("virustotal_api_key")
+        except:
+            vt_api_key = None
+
+        if not vt_api_key:
+            QMessageBox.warning(self, "API Key Missing", "Please enter your VirusTotal API key in Settings.")
+            return
+
+        result = scan_url_virustotal(vt_api_key, url)
+        if result["status"] == "success":
+            stats = result["details"]
+            msg = (
+                f"📡 URL: {url}\n"
+                f"✅ Scanned by {result['total_engines']} engines\n"
+                f"Results:\n"
+                f"- Harmless: {stats.get('harmless', 0)}\n"
+                f"- Suspicious: {stats.get('suspicious', 0)}\n"
+                f"- Malicious: {stats.get('malicious', 0)}\n"
+                f"- Undetected: {stats.get('undetected', 0)}\n"
+            )
+        else:
+            msg = f"❌ Scan failed: {result['details']}"
+
+        self.url_results.setText(msg)
         self.statusBar().showMessage("URL scan completed.")
-    
+
+
     def analyze_email(self):
         file_path = self.file_path_label.text()
         if file_path == "No file selected":
@@ -709,141 +731,76 @@ class EmailAnalysisGUI(QMainWindow):
         try:
             if not hasattr(self, 'monitor_thread') or self.monitor_thread is None:
                 # Starting monitoring
-                print("Starting monitoring...")  # Debug log
-                
                 if not self.gmail_service:
-                    QMessageBox.warning(self, "Error", 
-                                      "Gmail service not initialized. Please authenticate first.")
+                    QMessageBox.warning(self, "Error", "Gmail service not initialized. Please authenticate first.")
                     return
-                
-                try:
-                    # Create and start monitoring thread
-                    self.monitor_thread = GmailMonitorThread(self.gmail_service)
-                    self.monitor_thread.update_signal.connect(self.update_monitoring_results)
-                    self.monitor_thread.error_signal.connect(self.handle_monitoring_error)
-                    self.monitor_thread.start()
-                    
-                    # Update UI
-                    self.monitoring_status.setText("Monitoring Status: Active")
-                    self.monitoring_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
-                    self.start_monitoring_btn.setText("Stop Monitoring")
-                    self.start_monitoring_btn.setStyleSheet("""
-                        QPushButton {
-                            background-color: #F44336;
-                            color: white;
-                            border: none;
-                            padding: 5px 15px;
-                            border-radius: 3px;
-                        }
-                        QPushButton:hover {
-                            background-color: #d32f2f;
-                        }
-                    """)
-                    
-                    print("Monitoring started successfully")  # Debug log
-                except Exception as e:
-                    print(f"Error starting monitoring: {str(e)}")  # Debug log
-                    QMessageBox.critical(self, "Error", 
-                                      f"Failed to start monitoring: {str(e)}")
-                    self.monitor_thread = None
+
+                self.monitor_thread = GmailMonitorThread(self.gmail_service)
+                self.monitor_thread.update_signal.connect(self.update_monitoring_results)
+                self.monitor_thread.error_signal.connect(self.handle_monitoring_error)
+                self.monitor_thread.start()
+
+                # Update UI
+                self.monitoring_status.setText("Monitoring Status: Active")
+                self.monitoring_status.setStyleSheet("color: #4CAF50; font-weight: bold;")
+                self.start_monitoring_btn.setText("Stop Monitoring")
             else:
                 # Stopping monitoring
-                print("Stopping monitoring...")  # Debug log
-                try:
-                    if self.monitor_thread and self.monitor_thread.isRunning():
-                        # Set running flag to False first
-                        self.monitor_thread.running = False
-                        
-                        # Update UI immediately
-                        self.monitoring_status.setText("Monitoring Status: Stopping...")
-                        self.monitoring_status.setStyleSheet("color: #FF9800; font-weight: bold;")
-                        self.start_monitoring_btn.setEnabled(False)
-                        
-                        # Give the thread a moment to finish its current iteration
-                        QTimer.singleShot(1000, self.finish_stopping_monitor)
-                        
-                except Exception as e:
-                    print(f"Error stopping monitoring: {str(e)}")
-                    self.cleanup_monitoring()
+                self.monitor_thread.stop()
+                self.monitor_thread = None
+                self.monitoring_status.setText("Monitoring Status: Inactive")
+                self.monitoring_status.setStyleSheet("color: #757575; font-weight: bold;")
+                self.start_monitoring_btn.setText("Start Monitoring")
         except Exception as e:
             print(f"Error in toggle_monitoring: {str(e)}")
-    
-    def finish_stopping_monitor(self):
-        """Safely finish stopping the monitoring thread"""
-        try:
-            if self.monitor_thread:
-                if self.monitor_thread.isRunning():
-                    self.monitor_thread.quit()
-                    if not self.monitor_thread.wait(3000):  # Wait up to 3 seconds
-                        self.monitor_thread.terminate()  # Force quit if necessary
-            
-            self.cleanup_monitoring()
-            
-        except Exception as e:
-            print(f"Error in finish_stopping_monitor: {str(e)}")
-            self.cleanup_monitoring()
-    
-    def cleanup_monitoring(self):
-        """Clean up monitoring resources and update UI"""
-        try:
-            if hasattr(self, 'monitor_thread') and self.monitor_thread:
-                self.monitor_thread.disconnect()  # Disconnect all signals
-                self.monitor_thread = None
-            
-            self.monitoring_status.setText("Monitoring Status: Inactive")
-            self.monitoring_status.setStyleSheet("color: #757575; font-weight: bold;")
-            self.start_monitoring_btn.setText("Start Monitoring")
-            self.start_monitoring_btn.setEnabled(True)
-            self.start_monitoring_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 5px 15px;
-                    border-radius: 3px;
-                }
-                QPushButton:hover {
-                    background-color: #45a049;
-                }
-            """)
-            print("Monitoring cleanup completed")
-            
-        except Exception as e:
-            print(f"Error in cleanup_monitoring: {str(e)}")
     
     def update_monitoring_results(self, result):
         try:
             # Update statistics
-            if hasattr(self, 'monitor_thread'):
-                self.emails_processed.setText(f"Emails Processed: {self.monitor_thread.processed_count}")
-                self.suspicious_emails.setText(f"Suspicious Emails: {self.monitor_thread.suspicious_count}")
-                self.malicious_emails.setText(f"Malicious Emails: {self.monitor_thread.malicious_count}")
-            
-            # Parse the verdict from the result to determine color
-            verdict_color = "#4CAF50"  # Default green color for safe
-            if "verdict: <b>suspicious</b>" in result.lower():
-                verdict_color = "#FF9800"  # Orange for suspicious
-            elif "verdict: <b>malicious</b>" in result.lower():
-                verdict_color = "#F44336"  # Red for malicious
-            
-            # Create a styled result with better formatting
-            styled_result = f"""
+            self.emails_processed.setText(f"Emails Processed: {self.monitor_thread.processed_count}")
+            self.suspicious_emails.setText(f"Suspicious Emails: {self.monitor_thread.suspicious_count}")
+            self.malicious_emails.setText(f"Malicious Emails: {self.monitor_thread.malicious_count}")
+
+            # Format the result for display
+            verdict_color = {
+                "safe": "#4CAF50",
+                "suspicious": "#FF9800",
+                "malicious": "#F44336"
+            }.get(result["verdict"].lower(), "#757575")
+
+            # Extract SPF, DKIM, and DMARC results
+            security_checks = result.get("security_checks", {})
+            spf_result = security_checks.get("spf", {}).get("spf", "N/A")
+            dkim_result = security_checks.get("dkim", {}).get("dkim", "N/A")
+            dmarc_result = security_checks.get("dmarc", {}).get("dmarc", "N/A")
+
+            detailed_result = f"""
             <div style="background-color: #F5F5F5; border-left: 4px solid {verdict_color}; 
                         margin: 10px 0; padding: 10px; border-radius: 4px;">
                 <div style="font-size: 14px; color: #212121;">
-                    {result}
+                    <b>Sender:</b> {result['sender']}<br>
+                    <b>Subject:</b> {result['subject']}<br>
+                    <b>Date:</b> {result['date']}<br>
+                    <b>Verdict:</b> <span style="color: {verdict_color};">{result['verdict']}</span><br>
+                    <b>Score:</b> {result['score']}<br>
+                    <b>Attachments:</b> {result['attachments']}<br>
+                    <b>URLs Found:</b> {result['urls']}<br>
+                    <b>SPF:</b> {spf_result}<br>
+                    <b>DKIM:</b> {dkim_result}<br>
+                    <b>DMARC:</b> {dmarc_result}<br>
                 </div>
             </div>
+            <hr style="border: none; border-top: 1px solid #E0E0E0; margin: 15px 0;">
             """
-            
+
             # Add new result at the top of the log
             cursor = self.email_log.textCursor()
             cursor.movePosition(QTextCursor.MoveOperation.Start)
-            cursor.insertHtml(styled_result)
-            
+            cursor.insertHtml(detailed_result)
+
             # Ensure the new content is visible
             self.email_log.verticalScrollBar().setValue(0)
-            
+
         except Exception as e:
             print(f"Error updating monitoring results: {str(e)}")
     
@@ -1370,3 +1327,6 @@ if __name__ == '__main__':
     window=EmailAnalysisGUI()
     window.show()
     sys.exit(app.exec())
+
+
+

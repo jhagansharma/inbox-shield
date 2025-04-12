@@ -147,3 +147,27 @@ def check_url(url):
         result["whois"] = {"status": "error", "details": str(e)}
 
     return result
+
+
+def scan_url_virustotal(api_key, url):
+    try:
+        url_id = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
+        endpoint = f"https://www.virustotal.com/api/v3/urls/{url_id}"
+        headers = {"x-apikey": api_key}
+
+        response = requests.get(endpoint, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            stats = data["data"]["attributes"]["last_analysis_stats"]
+            total_engines = sum(stats.values())
+            return {
+                "status": "success",
+                "details": stats,
+                "total_engines": total_engines
+            }
+        elif response.status_code == 404:
+            return {"status": "error", "details": "URL not found in VirusTotal"}
+        else:
+            return {"status": "error", "details": f"HTTP {response.status_code}: {response.text}"}
+    except Exception as e:
+        return {"status": "error", "details": str(e)}
