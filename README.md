@@ -1,6 +1,6 @@
 # Zerospam Crew
 
-Zerospam Crew is an open-source phishing detection system designed to identify and mitigate phishing attacks effectively. This project leverages advanced algorithms and techniques to analyze and detect phishing attempts in real-time, providing users with a robust defense against online threats.
+this is an open-source phishing detection system designed to identify and mitigate phishing attacks effectively. This project leverages advanced algorithms and techniques to analyze and detect phishing attempts in real-time, providing users with a robust defense against online threats.
 
 ## Features
 - **Real-Time Detection**: Quickly identifies phishing attempts to protect users.
